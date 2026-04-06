@@ -51,7 +51,8 @@ runs:
         gh release download "$RELEASE_TAG" \
           --repo join-with/dxcore \
           --pattern "dxcore-agents-cli-linux-x86_64" \
-          --output dxcore-cli
+          --output dxcore-cli \
+          --clobber
 
     - name: Make binary executable
       shell: bash
