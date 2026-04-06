@@ -1,0 +1,7 @@
+name: "DxCore Finish"
+description: "Placeholder — synced from joinwith monorepo"
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: echo "This action is synced from the joinwith monorepo"
