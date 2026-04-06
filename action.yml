@@ -1,7 +1,87 @@
 name: "DxCore Finish"
-description: "Placeholder — synced from joinwith monorepo"
+description: "Finish a DxCore session and report the dispatcher result"
+
+inputs:
+  coordinator-url:
+    description: "URL of the running DxCore coordinator"
+    required: true
+  token:
+    description: "Authentication token matching the coordinator"
+    required: true
+  session-id:
+    description: "Session identifier. Defaults to gha-<run_id>."
+    required: false
+    default: ""
+  dispatcher-result:
+    description: "Result to report (success or failure). Defaults to failure as a safety net."
+    required: false
+    default: "failure"
+  version:
+    description: "Release tag to download (e.g. v0.1.0). Defaults to latest."
+    required: false
+    default: "latest"
+
+branding:
+  icon: "check-circle"
+  color: "green"
+
 runs:
   using: "composite"
   steps:
-    - shell: bash
-      run: echo "This action is synced from the joinwith monorepo"
+    - name: Determine version
+      id: version
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        if [ "$INPUT_VERSION" = "latest" ]; then
+          TAG=$(gh release view --repo join-with/dxcore --json tagName -q '.tagName') || { echo "::error::No releases found in join-with/dxcore"; exit 1; }
+        else
+          TAG="$INPUT_VERSION"
+        fi
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+    - name: Download CLI binary
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RELEASE_TAG: ${{ steps.version.outputs.tag }}
+      run: |
+        gh release download "$RELEASE_TAG" \
+          --repo join-with/dxcore \
+          --pattern "dxcore-agents-cli-linux-x86_64" \
+          --output dxcore-cli
+
+    - name: Make binary executable
+      shell: bash
+      run: chmod +x dxcore-cli
+
+    - name: Resolve session ID
+      id: defaults
+      shell: bash
+      env:
+        INPUT_SESSION_ID: ${{ inputs.session-id }}
+        RUN_ID: ${{ github.run_id }}
+      run: |
+        SESSION_ID="$INPUT_SESSION_ID"
+        if [ -z "$SESSION_ID" ]; then
+          SESSION_ID="gha-$RUN_ID"
+        fi
+        echo "session_id=$SESSION_ID" >> "$GITHUB_OUTPUT"
+
+    - name: Finish session
+      shell: bash
+      env:
+        DXCORE_COORDINATOR: ${{ inputs.coordinator-url }}
+        DXCORE_SESSION_ID: ${{ steps.defaults.outputs.session_id }}
+        DXCORE_TOKEN: ${{ inputs.token }}
+        DXCORE_RESULT: ${{ inputs.dispatcher-result }}
+      run: |
+        if ! ./dxcore-cli ci finish \
+          --coordinator="$DXCORE_COORDINATOR" \
+          --session-id="$DXCORE_SESSION_ID" \
+          --token="$DXCORE_TOKEN" \
+          --dispatcher-result="$DXCORE_RESULT"; then
+          echo "::warning::Failed to finish DxCore session (non-fatal)"
+        fi
