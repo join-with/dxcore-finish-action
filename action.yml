@@ -80,6 +80,7 @@ runs:
         DXCORE_TOKEN: ${{ inputs.token }}
         DXCORE_RESULT: ${{ inputs.dispatcher-result }}
       run: |
+        echo "Finishing session: $DXCORE_SESSION_ID"
         if ! ./dxcore-cli ci finish \
           --coordinator="$DXCORE_COORDINATOR" \
           --session-id="$DXCORE_SESSION_ID" \
